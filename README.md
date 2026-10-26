@@ -122,6 +122,9 @@ attached. If the version is unchanged, it does nothing. To release, bump
 - `tests/run.sh`: the test suite, run under DOSBox-X by `make test`
 - `.github/workflows/ci.yml`: build and test on PRs and pushes to `main`
 - `.github/workflows/release.yml`: tag and release when `VERSION` changes
+- `asm/`: optional 8086 assembly `hello.com`, a minimal-size baseline
+  (experiment; not part of the build, tests or release; see
+  `asm/README.md`)
 
 ## License
 
