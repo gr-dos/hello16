@@ -2,17 +2,18 @@
 
 A hand-written 8086 assembly version of `hello`, built as a
 `.COM` with NASM. It is the minimal-size baseline for the
-[gr-dos](https://github.com/gr-dos) `*16` suite: the smallest program that behaves exactly like the Watcom C
+[gr-dos](https://github.com/gr-dos) `*16` suite: the smallest program that behaves exactly like the C
 `hello.exe`, used to measure how much of `hello.exe` is C runtime.
 
-The top-level `make` and `make test` build and test only the Watcom
+The top-level `make` and `make test` build and test only the C
 `hello.exe`. CI and the release workflow also run `make -C asm test`,
 and each release ships `hello.com` alongside `hello.exe`.
 
 ## Build and test
 
 Needs NASM (any 2.x or 3.x; checked with 3.01), and for the tests
-DOSBox-X plus the Watcom toolchain for the reference `hello.exe`.
+DOSBox-X plus what the top-level build needs for the reference
+`hello.exe` (libc16 and its Open Watcom).
 
     make -C asm                  # hello.com
     make -C asm test             # existing suite + differential tests
@@ -21,7 +22,7 @@ DOSBox-X plus the Watcom toolchain for the reference `hello.exe`.
 
     make -C asm test DOSBOX=$PWD/asm/tests/dosbox-8086   # on an 8086
 
-`WATCOM=` works as at the top level and is passed down when the
+`LIBC16_ROOT=` works as at the top level and is passed down when the
 reference `hello.exe` needs building. The build is a single command,
 
     nasm -f bin -Werror '-DVERSION="0.01"' -o hello.com hello.asm
@@ -59,52 +60,50 @@ Same as `hello.c`: the greeting, `--help` / `-h` / `-?`, `--version`
 (from `../VERSION`), and the two diagnostics on standard error with exit
 status 1. Only the first argument is looked at, as in `hello.c`.
 
-The subtle part is matching how the Watcom C startup splits the command
-tail into `argv`, because a diagnostic echoes the argument. The rules
-below were found by testing the Watcom build without reading its
-source, and are now pinned by `tests/diff.sh`:
+The subtle part is matching how `hello.exe` splits the command tail
+into `argv`, because a diagnostic echoes the argument. `hello.exe` is
+linked with libc16, which splits it as Microsoft C does (libc16's
+`docs/spec/startup.md`), and `tests/diff.sh` pins the rules:
 
 - spaces and tabs separate arguments; leading ones are skipped;
 - `"` toggles quoting and is removed, so `a"b c"d` is `ab cd`, `""` is
   an empty argument (an "extra operand"), and `-"h"` is `-h`;
-- a single `\` before `"` makes it a literal `"`, and the `\` is
-  removed;
-- a run of n ≥ 2 backslashes before `"` gives n − 1 backslashes and a
-  toggle, so `a\\\"b c"` is `a\\b c`. This is not the Microsoft rule,
-  where the parity of the run decides (2n backslashes give n and a
-  toggle, 2n + 1 give n and a literal `"`); the two agree only for
-  runs of 0 to 2;
+- a run of 2n backslashes before `"` gives n backslashes and a toggle,
+  and 2n + 1 give n backslashes and a literal `"`, so `a\\\"b c"` is
+  `a\"b` followed by `c`;
 - any other `\` is literal.
 
-The backslash cases in `tests/diff.sh` record this for runs of 0 to 8,
-and with `KEEP=1` the work directory holds each case's command tail
-(`T*.TXT`) and Watcom output (`C*.TXT`), which can serve as `argv`
-fixtures for `libc16`.
+The backslash cases in `tests/diff.sh` cover runs of 0 to 8. Before
+libc16, `hello.exe` used Open Watcom's runtime, whose startup turns a
+run of n ≥ 2 backslashes before `"` into n − 1 backslashes and a toggle;
+the two rules agree only for runs of 0 to 2, and `hello.asm` followed
+Watcom's until it moved with `hello.exe`.
 
 ## Results
 
-From `make -C asm measure` (Open Watcom 2.0, NASM 3.01, `VERSION`
-0.01):
+From `make -C asm measure` (Open Watcom `2026-10-01-Build` with libc16,
+NASM 3.01, `VERSION` 0.01), with the Open Watcom runtime build it
+replaces for comparison:
 
-| | `hello.exe` (Watcom C) | `hello.com` (asm) |
-|---|---:|---:|
-| File size | 9,532 bytes | 511 bytes (205 code, 306 text) |
-| 360K / 720K floppy (1 KB clusters) | 10 clusters, 10,240 bytes | 1 cluster, 1,024 bytes |
-| 1.2M / 1.44M floppy (512 B clusters) | 19 clusters, 9,728 bytes | 1 cluster, 512 bytes |
-| Conventional memory to load | 12,096 bytes | about 1,024 bytes |
-| DOS version | 2.0 or later | 2.0 or later |
-| CPU | 8086 | 8086 |
+| | `hello.exe` (libc16) | `hello.com` (asm) | `hello.exe` (Watcom runtime) |
+|---|---:|---:|---:|
+| File size | 1,384 bytes | 547 bytes | 9,532 bytes |
+| 360K / 720K floppy (1 KB clusters) | 2 clusters, 2,048 bytes | 1 cluster, 1,024 bytes | 10 clusters, 10,240 bytes |
+| 1.2M / 1.44M floppy (512 B clusters) | 3 clusters, 1,536 bytes | 2 clusters, 1,024 bytes | 19 clusters, 9,728 bytes |
+| Conventional memory to load | 3,968 bytes | about 1,072 bytes | 12,096 bytes |
+| DOS version | 2.0 or later | 2.0 or later | 2.0 or later |
+| CPU | 8086 | 8086 | 8086 |
 
 FAT figures are measured: each file is copied onto a freshly formatted
 image with mtools, and the drop in free space is recorded.
 
 Memory: for `hello.exe` the figure is from the MZ header (PSP 256 +
-load image 9,484 rounded to a paragraph + minimum allocation 147
+load image 1,336 rounded to a paragraph + minimum allocation 148
 paragraphs, which holds BSS and the 2 KB stack). A `.COM` has no header,
 so for `hello.com` it is PSP + image + 256 bytes of stack. hello uses
 only a few words of stack itself, but DOS and interrupt handlers also
 push onto it. Either way DOS gives a program the largest free block when
-it loads it. The Watcom startup then shrinks its block. `hello.com`
+it loads it. The libc16 startup then shrinks its block. `hello.com`
 does not, which costs nothing because it exits at once and starts no
 child process.
 
@@ -116,40 +115,29 @@ run on DOSBox-X's built-in DOS.
 
 ## What the baseline says about runtime overhead
 
-Of `hello.exe`'s 9,532 bytes, `main` is 153 bytes of code. The rest is
-the general-purpose C runtime. The link map
-(`wcl ... -fm=hello.map`, same flags as the `Makefile`) shows 8,554
-bytes of code in `_TEXT` from 65 object modules. These cover:
+`hello.exe`'s link map (`hello.map`, written by the `Makefile`) shows
+989 bytes of code, of which `hello.c` is about 260 (`main`, `usage` and
+`bad_arg`) and libc16 the rest: the startup, `argv` splitting (245
+bytes), `write` with text-mode `\n` to CR LF translation, `fputs`,
+`strlen`, `strcmp`, and the `stdout` and `stderr` streams. DGROUP holds
+about 330 bytes of messages and data, 310 bytes of BSS (mostly the
+`argv` buffers) and the 2 KB stack.
 
-- startup and `argv` splitting (`cstart`, `cmain086`, `initargv`,
-  `histsplt`, init/fini tables, multibyte and code-page set-up);
-- stdio streams: `FILE` tables, buffer allocation, flushing on exit,
-  text-mode `\n` to CR LF translation, tty detection, `fclose`;
-- a near heap (`malloc`, `free`, `sbrk`, heap growth) needed for the
-  stream buffers;
-- `printf` / `fprintf` formatting, with integer conversions down to
-  64-bit `lltoa`, none of which `hello` uses.
-
-The data side is similar: about 1.2 KB of DGROUP data and BSS plus a
-2 KB stack, against none for the `.COM`. So for a utility this small,
-the fixed cost of the Watcom C runtime is about 9 KB on disk (9 or 18
-extra floppy clusters) and about 11 KB of conventional memory. The
-program's own logic is a few hundred bytes in either language.
-
-That gap is roughly what [`libc16`](https://github.com/gr-dos/libc16)
-can win back. If its
-startup splits the tail without a heap, writes go straight to DOS
-handles with no `FILE` buffering, and functions link one per object so
-`printf` comes in only when used, `hello` in C should land within a few
-hundred bytes of this baseline rather than 18 times its size. This
-baseline gives that work a concrete target: 511 bytes and one cluster.
+With Open Watcom's runtime the same program was 9,532 bytes: 8,554 bytes
+of code from 65 object modules, for code page set-up, buffered streams
+flushed at exit, a heap for the stream buffers, and `printf`
+formatting down to 64-bit integers, none of which `hello` needs.
+libc16 links only what a program calls, writes straight to DOS handles,
+and has no `printf`, which takes `hello` in C from 18 times the size of
+`hello.com` to about 2.5 times, or one more floppy cluster.
 
 ## Provenance and license
 
 `hello.asm`, `tests/err2out.asm` and the scripts here were written from
-scratch for this repository. They contain no Open Watcom runtime code,
-and the argument-splitting rules were found by black-box testing of the
-Watcom build. They are MIT licensed like the rest of the repository
+scratch for this repository. They contain no Open Watcom runtime code;
+the argument-splitting rules were first found by black-box testing of
+the Watcom build, and now follow libc16's specification. They are MIT
+licensed like the rest of the repository
 (see `../LICENSE`).
 
 ## Recommendation
@@ -158,16 +146,16 @@ Whether a utility is written in C, assembly, or both is up to its
 implementor (see "Implementation: C, assembly, or both" in
 `../README.md`). Things to weigh:
 
-- The size win is real but fixed: about 9 KB on disk and 11 KB of
-  memory per program. It matters most on a 360K boot floppy full of
-  tools, and size is a good reason to choose assembly.
+- The size win is real but fixed, and with libc16 it is small: under
+  1 KB on disk and about 3 KB of memory per program. It matters most on
+  a 360K boot floppy full of tools, and size is still a reason to
+  choose assembly.
 - The cost grows with every feature. Matching even `hello`'s argument
   splitting took differential tests. Real utilities (md5sum, tar) need
   file I/O, error handling and number formatting written and checked by
   hand.
-- Much of the saving may also come from C through a slimmer runtime
-  (`libc16` with per-function linking), which keeps the C sources
-  and the Watcom template.
+- Most of the saving now comes from C through libc16's per-function
+  linking, which keeps the C sources and the template.
 
 For `hello` itself, `hello.com` is also the size baseline and the
 yardstick for `libc16`: build `hello.c` against it and compare with

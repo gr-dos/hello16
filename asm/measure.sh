@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Compare the Watcom hello.exe with the assembly hello.com: file size,
+# Compare the C hello.exe with the assembly hello.com: file size,
 # FAT12 allocation on the standard floppy formats (measured by copying
 # each file onto a freshly formatted image with mtools), and the
 # conventional memory DOS needs to load each program.
