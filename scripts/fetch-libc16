@@ -9,7 +9,7 @@
 set -eu
 
 repo=https://github.com/gr-dos/libc16.git
-rev=d7b4b29b29748eb2757f9647c852342429a9c8a0
+rev=8cde3bd60a6f09dfa7fe754618b24b45f665376f
 
 dir=${1:-build/libc16}
 

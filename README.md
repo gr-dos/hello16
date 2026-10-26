@@ -41,7 +41,7 @@ Which to use is up to the implementor. The trade-off is size against
 effort. C is quicker to write and review. With libc16, which links only
 the functions a program calls, its runtime costs under 1 KB on disk and
 about 3 KB of conventional memory for a program like this one
-(`hello.exe` is 1,384 bytes against 547 for `hello.com`; with Open
+(`hello.exe` is 1,386 bytes against 547 for `hello.com`; with Open
 Watcom's own runtime it was 9,532; see `asm/README.md`). Assembly is
 smaller still, but file I/O, error handling and number formatting all
 have to be written and tested by hand. Size is a good reason to choose

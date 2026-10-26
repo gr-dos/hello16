@@ -87,7 +87,7 @@ replaces for comparison:
 
 | | `hello.exe` (libc16) | `hello.com` (asm) | `hello.exe` (Watcom runtime) |
 |---|---:|---:|---:|
-| File size | 1,384 bytes | 547 bytes | 9,532 bytes |
+| File size | 1,386 bytes | 547 bytes | 9,532 bytes |
 | 360K / 720K floppy (1 KB clusters) | 2 clusters, 2,048 bytes | 1 cluster, 1,024 bytes | 10 clusters, 10,240 bytes |
 | 1.2M / 1.44M floppy (512 B clusters) | 3 clusters, 1,536 bytes | 2 clusters, 1,024 bytes | 19 clusters, 9,728 bytes |
 | Conventional memory to load | 3,968 bytes | about 1,072 bytes | 12,096 bytes |
