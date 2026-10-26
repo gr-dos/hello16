@@ -6,6 +6,10 @@
 # standard error, and identical exit status.  A few cases are also
 # checked against exact expected bytes, CR LF line endings included.
 #
+# Each case also runs tail.com (built from tail.asm), which writes the
+# command tail it was given, to check that the shell passes the
+# argument text through unchanged.
+#
 # Standard error is captured with err2out.com (built from err2out.asm
 # next to this script), which runs a program with handle 2 duplicated
 # from handle 1.  Redirections are written before the command
@@ -13,7 +17,8 @@
 # not swallow them.
 #
 # To add a test: add a line to the case list below (the line is the
-# argument text, verbatim; an empty line means no arguments).
+# argument text, verbatim; an empty line means no arguments).  Runs of
+# 0 to 8 backslashes before a quote are generated after the list.
 #
 # Usage: tests/diff.sh path/to/hello.exe path/to/hello.com
 # Environment: DOSBOX (default dosbox-x), KEEP=1 to keep the work
@@ -27,7 +32,7 @@ asm=${2:?usage: diff.sh hello.exe hello.com}
 DOSBOX=${DOSBOX:-dosbox-x}
 
 command -v "$DOSBOX" >/dev/null || { echo "$DOSBOX not found" >&2; exit 2; }
-for f in "$ref" "$asm" "$here/err2out.com"; do
+for f in "$ref" "$asm" "$here/err2out.com" "$here/tail.com"; do
     [ -f "$f" ] || { echo "$f not found" >&2; exit 2; }
 done
 ref=$(cd "$(dirname "$ref")" && pwd)/$(basename "$ref")
@@ -47,7 +52,8 @@ long=$(printf '%0100d' 0 | tr 0 x)
 cd "$work" || exit 2
 cp "$ref" ref.exe &&
 cp "$asm" asm.com &&
-cp "$here/err2out.com" err2out.com || exit 2
+cp "$here/err2out.com" err2out.com &&
+cp "$here/tail.com" tail.com || exit 2
 
 cat > cases.txt <<EOS
 
@@ -93,6 +99,17 @@ $long
 "$long"
 EOS
 
+# Runs of 0 to 8 backslashes before a quote: mid-word with a quoted
+# blank after, inside quotes before a blank, trailing, leading, closing
+# a quoted argument, and in an option.
+i=0
+while [ $i -le 8 ]; do
+    b=$(printf "%${i}s" '' | tr ' ' '\\')
+    printf '%s\n' "a$b\"b c\"" "\"a$b\" b\"" "a$b\"" "$b\"x y" \
+        "\"a b$b\"" "-$b\"h\"" >> cases.txt
+    i=$((i + 1))
+done
+
 cat > rc.bat <<'EOS'
 @echo off
 if errorlevel 2 goto rc2
@@ -110,10 +127,12 @@ EOS
 # for case N and program P (c = ref.exe, a = asm.com):
 #   PON.TXT  standard output       RPON.TXT  its exit status
 #   PBN.TXT  both streams          RPBN.TXT  its exit status
+# and TN.TXT, the command tail as tail.com received it
 n=0
 printf '@echo off\r\n' > steps.bat
 while IFS= read -r args; do
     n=$((n + 1))
+    printf '>t%d.txt tail %s\r\n' $n "$args" >> steps.bat
     for p in c a; do
         case $p in c) prog=ref.exe ;; a) prog=asm.com ;; esac
         printf '>%so%d.txt %s %s\r\ncall rc %so%d\r\n' \
@@ -162,6 +181,17 @@ exact() {
 n=0
 while IFS= read -r args; do
     n=$((n + 1))
+    if [ -n "$args" ]; then
+        printf ' %s' "$args" > want.txt
+    else
+        : > want.txt
+    fi
+    if cmp -s want.txt "T$n.TXT"; then
+        ok
+    else
+        not_ok "command tail for case $n is not [ $args]"
+        od -c "T$n.TXT" 2>&1 | sed 's/^/    /'
+    fi
     for s in O B; do
         same "$s$n"
         if [ -f "RC$s$n.TXT" ] && cmp -s "RC$s$n.TXT" "RA$s$n.TXT"; then

@@ -6,8 +6,9 @@ The resulting `hello.exe` is a small-model, real-mode 8086 executable
 (about 10 KB) that runs on any DOS from an original PC up.
 
 This repository is also the template for other 16-bit DOS utilities
-(see [dos-md5sum16](https://github.com/plicease/dos-md5sum16) and
-[dos-tar16](https://github.com/plicease/dos-tar16)). The conventions
+in the [gr-dos](https://github.com/gr-dos) organization, which are
+named `gr-dos/NAME16` (see [md5sum16](https://github.com/gr-dos/md5sum16)
+and [tar16](https://github.com/gr-dos/tar16)). The conventions
 below are what every such utility should follow, whichever language it
 is written in (see [Implementation: C, assembly, or
 both](#implementation-c-assembly-or-both)).
@@ -171,10 +172,10 @@ in layout 2 only `NAME.com`.
 
 ## Starting a new utility from this template
 
-1. Copy the repository and rename `hello` and `dos-hello16` throughout
-   (`hello.c`, `asm/hello.asm`, both `Makefile`s, `tests/run.sh`,
-   `asm/tests/diff.sh`, `asm/measure.sh`, the workflows, the
-   `--version` string, this README).
+1. Copy the repository as `gr-dos/NAME16` and rename `hello` and
+   `hello16` throughout (`hello.c`, `asm/hello.asm`, both `Makefile`s,
+   `tests/run.sh`, `asm/tests/diff.sh`, `asm/measure.sh`, the
+   workflows, the `--version` string, this README).
 2. Pick a layout (see [Implementation](#implementation-c-assembly-or-both)):
    - **C only:** delete `asm/`, and in both workflows drop `nasm`,
      `make -C asm test` and `asm/NAME.com`.

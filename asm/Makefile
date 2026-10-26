@@ -18,12 +18,15 @@ hello.com: hello.asm ../VERSION
 tests/err2out.com: tests/err2out.asm
 	$(NASM) $(NFLAGS) -o $@ tests/err2out.asm
 
+tests/tail.com: tests/tail.asm
+	$(NASM) $(NFLAGS) -o $@ tests/tail.asm
+
 # The Watcom reference, built by the unchanged top-level Makefile
 # (WATCOM= on this command line is passed down).
 ../hello.exe: FORCE
 	$(MAKE) -C .. hello.exe
 
-test: hello.com tests/err2out.com ../hello.exe
+test: hello.com tests/err2out.com tests/tail.com ../hello.exe
 	sh ../tests/run.sh $(CURDIR)/hello.com
 	sh tests/diff.sh $(CURDIR)/../hello.exe $(CURDIR)/hello.com
 
@@ -31,6 +34,6 @@ measure: hello.com ../hello.exe
 	sh measure.sh $(CURDIR)/../hello.exe $(CURDIR)/hello.com
 
 clean:
-	rm -f hello.com tests/err2out.com
+	rm -f hello.com tests/err2out.com tests/tail.com
 
 .PHONY: all test measure clean FORCE

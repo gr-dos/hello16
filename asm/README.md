@@ -1,8 +1,8 @@
 # hello.com: 8086 assembly version
 
 A hand-written 8086 assembly version of `hello`, built as a
-`.COM` with NASM. It is the minimal-size baseline for the `dos-*16`
-suite: the smallest program that behaves exactly like the Watcom C
+`.COM` with NASM. It is the minimal-size baseline for the
+[gr-dos](https://github.com/gr-dos) `*16` suite: the smallest program that behaves exactly like the Watcom C
 `hello.exe`, used to measure how much of `hello.exe` is C runtime.
 
 The top-level `make` and `make test` build and test only the Watcom
@@ -35,13 +35,19 @@ source makes NASM reject any instruction newer than the original 8086.
   suite copies the program to `hello.exe`; DOS decides between EXE and
   COM by the `MZ` signature, not the name, so the image runs as a COM.
 - `tests/diff.sh`, which runs `hello.exe` and `hello.com` on the same
-  41 argument lists in one DOSBox-X session and requires identical
+  95 argument lists in one DOSBox-X session and requires identical
   bytes on standard output, identical bytes on standard output plus
-  standard error, and identical exit status. A few cases are also
-  checked against exact expected bytes, CR LF endings included.
-  Standard error is captured with `tests/err2out.asm`, a small helper
-  that runs a program with handle 2 duplicated from handle 1, because
-  DOS shells cannot redirect it.
+  standard error, and identical exit status. 41 lists are written out;
+  the other 54 are runs of 0 to 8 backslashes before a quote in six
+  positions (mid-word before a quoted blank, inside quotes before a
+  blank, trailing, leading, closing a quoted argument, and in an
+  option). A few cases are also checked against exact expected bytes,
+  CR LF endings included. Standard error is captured with
+  `tests/err2out.asm`, a small helper that runs a program with handle 2
+  duplicated from handle 1, because DOS shells cannot redirect it.
+  Every list is also passed to `tests/tail.asm`, which writes back the
+  command tail it received, to check that the shell hands the argument
+  text to the programs unchanged.
 
 `tests/dosbox-8086` runs DOSBox-X with `cputype=8086`, where an 80186
 instruction does not execute. Both suites pass there for both
@@ -61,8 +67,19 @@ source, and are now pinned by `tests/diff.sh`:
 - spaces and tabs separate arguments; leading ones are skipped;
 - `"` toggles quoting and is removed, so `a"b c"d` is `ab cd`, `""` is
   an empty argument (an "extra operand"), and `-"h"` is `-h`;
-- `\"` is a literal `"`, but `\\"` is `\` followed by a toggle;
+- a single `\` before `"` makes it a literal `"`, and the `\` is
+  removed;
+- a run of n ≥ 2 backslashes before `"` gives n − 1 backslashes and a
+  toggle, so `a\\\"b c"` is `a\\b c`. This is not the Microsoft rule,
+  where the parity of the run decides (2n backslashes give n and a
+  toggle, 2n + 1 give n and a literal `"`); the two agree only for
+  runs of 0 to 2;
 - any other `\` is literal.
+
+The backslash cases in `tests/diff.sh` record this for runs of 0 to 8,
+and with `KEEP=1` the work directory holds each case's command tail
+(`T*.TXT`) and Watcom output (`C*.TXT`), which can serve as `argv`
+fixtures for `libc16`.
 
 ## Results
 
@@ -119,7 +136,8 @@ the fixed cost of the Watcom C runtime is about 9 KB on disk (9 or 18
 extra floppy clusters) and about 11 KB of conventional memory. The
 program's own logic is a few hundred bytes in either language.
 
-That gap is roughly what a future `dos-libc16` can win back. If its
+That gap is roughly what [`libc16`](https://github.com/gr-dos/libc16)
+can win back. If its
 startup splits the tail without a heap, writes go straight to DOS
 handles with no `FILE` buffering, and functions link one per object so
 `printf` comes in only when used, `hello` in C should land within a few
@@ -148,11 +166,11 @@ implementor (see "Implementation: C, assembly, or both" in
   file I/O, error handling and number formatting written and checked by
   hand.
 - Much of the saving may also come from C through a slimmer runtime
-  (`dos-libc16` with per-function linking), which keeps the C sources
+  (`libc16` with per-function linking), which keeps the C sources
   and the Watcom template.
 
 For `hello` itself, `hello.com` is also the size baseline and the
-yardstick for `dos-libc16`: build `hello.c` against it and compare with
+yardstick for `libc16`: build `hello.c` against it and compare with
 `make -C asm measure`. This directory is also the example for the
 "C reference and assembly" layout: how to build the `.COM` and test it
 against the C version, run it in CI, and release it.

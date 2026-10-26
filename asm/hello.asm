@@ -24,8 +24,12 @@ start:
         ;   - blanks (space, tab) separate arguments;
         ;   - " toggles quoting and is removed; blanks inside quotes are
         ;     kept;
-        ;   - \" is a literal ", except that \\" is \ and a toggle;
+        ;   - a lone \ before " makes it a literal " (the \ is dropped);
+        ;   - a run of n >= 2 backslashes before " gives n - 1
+        ;     backslashes and a toggle (not the Microsoft parity rule);
         ;   - any other \ is literal.
+        ; Only the byte before a \ that precedes " needs checking: every
+        ; earlier \ in the run has already been copied as a literal.
         ; The argument is unquoted in place; DX:DI brackets the result.
         mov     si, 81h
         mov     cl, [80h]
