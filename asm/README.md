@@ -1,13 +1,13 @@
-# hello.com: 8086 assembly baseline (experiment)
+# hello.com: 8086 assembly version
 
-An optional, hand-written 8086 assembly version of `hello`, built as a
+A hand-written 8086 assembly version of `hello`, built as a
 `.COM` with NASM. It is the minimal-size baseline for the `dos-*16`
 suite: the smallest program that behaves exactly like the Watcom C
 `hello.exe`, used to measure how much of `hello.exe` is C runtime.
 
-It is **not** part of the default build, tests, CI or release. The
-top-level `Makefile`, `hello.c`, `tests/run.sh` and the workflows are
-unchanged, and releases still ship only the Watcom `hello.exe`.
+The top-level `make` and `make test` build and test only the Watcom
+`hello.exe`. CI and the release workflow also run `make -C asm test`,
+and each release ships `hello.com` alongside `hello.exe`.
 
 ## Build and test
 
@@ -151,9 +151,8 @@ implementor (see "Implementation: C, assembly, or both" in
   (`dos-libc16` with per-function linking), which keeps the C sources
   and the Watcom template.
 
-For `hello` itself, `hello.com` stays an optional baseline and the
+For `hello` itself, `hello.com` is also the size baseline and the
 yardstick for `dos-libc16`: build `hello.c` against it and compare with
 `make -C asm measure`. This directory is also the example for the
 "C reference and assembly" layout: how to build the `.COM` and test it
-against the C version. Here `make -C asm test` is not run in CI; a
-utility that ships its `.COM` adds it to the workflows.
+against the C version, run it in CI, and release it.

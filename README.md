@@ -28,7 +28,7 @@ A utility built from this template uses one of three layouts:
 |---|---|---|---|
 | 1. C only | `NAME.c` | Open Watcom | `NAME.exe` |
 | 2. Assembly only | `NAME.asm` | NASM | `NAME.com` |
-| 3. C reference and assembly | `NAME.c`, `asm/NAME.asm` | Open Watcom and NASM | `NAME.exe`, plus `asm/NAME.com` if CI tests it |
+| 3. C reference and assembly | `NAME.c`, `asm/NAME.asm` | Open Watcom and NASM | `NAME.exe` and `asm/NAME.com` |
 
 This repository is layout 3: `hello.c` is the reference and
 `asm/hello.asm` is the assembly version. Remove what a utility does not
@@ -62,10 +62,9 @@ The C program is the reference: it is what the top-level `make`,
 `asm/tests/diff.sh`, which runs both programs on the same arguments and
 requires identical standard output, standard error and exit status. Any
 change to the C program goes into the assembly in the same PR, and a new
-behavior gets a `diff.sh` case. In this repository the assembly is an
-experiment and is left out of CI and the release; a utility that ships
-its `.COM` adds NASM and `make -C asm test` to both workflows and
-attaches `asm/NAME.com` to the release (rules 5 and 7).
+behavior gets a `diff.sh` case. Both workflows install NASM and run
+`make -C asm test`, and the release attaches `asm/NAME.com` next to
+`NAME.exe` (rules 5 and 7).
 
 ## Conventions
 
@@ -145,8 +144,8 @@ checked. To add a test, add a step to `steps.bat` and the matching
 
 ### 5. CI must pass before merging
 
-`.github/workflows/ci.yml` builds and runs `make test` on every pull
-request and every push to `main`. Its `test` job is a required status
+`.github/workflows/ci.yml` builds and runs `make test` (and, in layout
+3, `make -C asm test`) on every pull request and every push to `main`. Its `test` job is a required status
 check, so a PR cannot be merged until it passes.
 
 ### 6. `--version` and the `VERSION` file
@@ -166,9 +165,9 @@ they start at `0.01` and go `0.02`, `0.03`, ... `1.00`, `1.01`, and so on.
 rule 3) is always a PR merge. If `VERSION` names a version that has no
 `v<VERSION>` tag yet, it builds and tests `hello.exe`, tags the merge
 commit `v<VERSION>`, and publishes a GitHub release with `hello.exe`
-attached. If the version is unchanged, it does nothing. To release, bump
-`VERSION` in the PR. In layout 2 the attached program is `NAME.com`; in
-layout 3 it is `NAME.exe`, plus `asm/NAME.com` if the utility ships it.
+and `hello.com` attached. If the version is unchanged, it does nothing. To release, bump
+`VERSION` in the PR. In layout 1 the release attaches only `NAME.exe`, and
+in layout 2 only `NAME.com`.
 
 ## Starting a new utility from this template
 
@@ -177,16 +176,15 @@ layout 3 it is `NAME.exe`, plus `asm/NAME.com` if the utility ships it.
    `asm/tests/diff.sh`, `asm/measure.sh`, the workflows, the
    `--version` string, this README).
 2. Pick a layout (see [Implementation](#implementation-c-assembly-or-both)):
-   - **C only:** delete `asm/`.
+   - **C only:** delete `asm/`, and in both workflows drop `nasm`,
+     `make -C asm test` and `asm/NAME.com`.
    - **Assembly only:** move `asm/NAME.asm` to the top level, replace
      the top-level `Makefile` with a NASM one (the `NAME.com` rule from
      `asm/Makefile`, with `test` running `tests/run.sh` on `NAME.com`),
      delete `NAME.c` and the rest of `asm/`, and in both workflows
-     install `nasm` instead of using `open-watcom/setup-watcom` and
-     release `NAME.com`.
-   - **C reference and assembly:** keep both. To ship the `.COM`,
-     install `nasm` and run `make -C asm test` in both workflows, and
-     attach `asm/NAME.com` to the release.
+     drop `open-watcom/setup-watcom` and `make -C asm test` and release
+     only `NAME.com`.
+   - **C reference and assembly:** keep both, as is.
 3. Reset `VERSION` to `0.01`.
 4. Create the GitHub repository, push `main`, and apply the branch
    protection above.
@@ -201,8 +199,8 @@ layout 3 it is `NAME.exe`, plus `asm/NAME.com` if the utility ships it.
 - `.github/workflows/ci.yml`: build and test on PRs and pushes to `main`
 - `.github/workflows/release.yml`: tag and release when `VERSION` changes
 - `asm/`: the 8086 assembly `hello.com` for layout 3, checked against
-  `hello.exe` by `make -C asm test` (here an experiment and minimal-size
-  baseline, not part of CI or the release; see `asm/README.md`)
+  `hello.exe` by `make -C asm test` in CI and released alongside it
+  (see `asm/README.md`)
 
 ## License
 
