@@ -136,24 +136,24 @@ Watcom build. They are MIT licensed like the rest of the repository
 
 ## Recommendation
 
-Keep this as an optional reference baseline and do not adopt assembly
-as the way to write the suite's utilities:
+Whether a utility is written in C, assembly, or both is up to its
+implementor (see "Implementation: C, assembly, or both" in
+`../README.md`). Things to weigh:
 
-- The win is real but fixed: about 9 KB and 11 KB of memory per program.
-  It matters on a 360K boot floppy full of tools, and hardly anywhere
-  else.
+- The size win is real but fixed: about 9 KB on disk and 11 KB of
+  memory per program. It matters most on a 360K boot floppy full of
+  tools, and size is a good reason to choose assembly.
 - The cost grows with every feature. Matching even `hello`'s argument
-  splitting took differential tests. Real utilities (md5sum, tar) would
-  need file I/O, error handling and number formatting written and
-  checked by hand.
-- The same saving is mostly available from C through a slimmer runtime
+  splitting took differential tests. Real utilities (md5sum, tar) need
+  file I/O, error handling and number formatting written and checked by
+  hand.
+- Much of the saving may also come from C through a slimmer runtime
   (`dos-libc16` with per-function linking), which keeps the C sources
   and the Watcom template.
 
-Use `hello.com` as the yardstick for `dos-libc16`: build `hello.c`
-against it and compare with `make -C asm measure`. If a single utility
-ever needs to be a tiny `.COM` (for example, something that must fit on
-a crowded boot disk), this directory shows how, and how to test it
-against the C version. Running `make -C asm test` in CI would need a
-change to the workflows, which this experiment deliberately leaves
-alone.
+For `hello` itself, `hello.com` stays an optional baseline and the
+yardstick for `dos-libc16`: build `hello.c` against it and compare with
+`make -C asm measure`. This directory is also the example for the
+"C reference and assembly" layout: how to build the `.COM` and test it
+against the C version. Here `make -C asm test` is not run in CI; a
+utility that ships its `.COM` adds it to the workflows.
