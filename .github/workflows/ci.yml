@@ -18,10 +18,13 @@ jobs:
       - name: Install DOSBox-X
         run: |
           sudo apt-get update
-          sudo apt-get install -y dosbox-x
+          sudo apt-get install -y dosbox-x nasm
 
       - name: Build
         run: make
 
       - name: Test
         run: make test
+
+      - name: Build and test hello.com
+        run: make -C asm test
