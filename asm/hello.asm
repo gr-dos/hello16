@@ -1,9 +1,9 @@
 ; hello - print a greeting
 ;
 ; 8086 assembly version of hello.c for MS-DOS, built as a .COM with
-; NASM.  It reproduces the Watcom build's observable behavior: the same
-; bytes on standard output and standard error (CR LF line endings), the
-; same exit status, and the same splitting of the command tail into
+; NASM.  It reproduces hello.exe's observable behavior: the same bytes
+; on standard output and standard error (CR LF line endings), the same
+; exit status, and the same splitting of the command tail into
 ; arguments.  Only the first argument matters, so only it is parsed.
 ;
 ; Build: nasm -f bin -DVERSION='"0.01"' -o hello.com hello.asm
@@ -19,22 +19,19 @@ start:
         cld
 
         ; Find the first argument in the command tail (PSP:80h holds its
-        ; length, PSP:81h the text).  Arguments are split the way the
-        ; Open Watcom C startup splits them:
+        ; length, PSP:81h the text).  Arguments are split the way libc16
+        ; splits them for hello.exe, which is Microsoft C's rule:
         ;   - blanks (space, tab) separate arguments;
         ;   - " toggles quoting and is removed; blanks inside quotes are
         ;     kept;
-        ;   - a lone \ before " makes it a literal " (the \ is dropped);
-        ;   - a run of n >= 2 backslashes before " gives n - 1
-        ;     backslashes and a toggle (not the Microsoft parity rule);
+        ;   - a run of 2n backslashes before " gives n backslashes and a
+        ;     toggle; 2n + 1 give n backslashes and a literal ";
         ;   - any other \ is literal.
-        ; Only the byte before a \ that precedes " needs checking: every
-        ; earlier \ in the run has already been copied as a literal.
         ; The argument is unquoted in place; DX:DI brackets the result.
         mov     si, 81h
         mov     cl, [80h]
         xor     ch, ch
-.skip:  jcxz    greet
+.skip:  jcxz    .none
         lodsb
         dec     cx
         cmp     al, ' '
@@ -51,14 +48,37 @@ start:
         dec     cx
         cmp     al, '\'
         jne     .notbs
-        jcxz    .copy
-        cmp     byte [si], '"'
-        jne     .copy
-        cmp     byte [si - 2], '\'      ; \\" : the " is a toggle
-        je      .next
-        movsb                           ; \"  : a literal "
+        mov     ah, 1                   ; AH = backslashes in the run
+.run:   jcxz    .lit
+        lodsb
+        cmp     al, '\'
+        jne     .runend
+        dec     cx
+        inc     ah
+        jmp     .run
+.runend:
+        dec     si                      ; leave the byte after the run
+        cmp     al, '"'
+        jne     .lit
+        shr     ah, 1                   ; AH = n
+        sbb     bh, bh                  ; BH = -1 for 2n + 1
+        mov     al, '\'
+.half:  test    ah, ah
+        jz      .quote
+        stosb
+        dec     ah
+        jmp     .half
+.quote: test    bh, bh
+        jz      .next                   ; 2n: the " toggles, read next
+        movsb                           ; 2n + 1: a literal "
         dec     cx
         jmp     .next
+.lit:   mov     al, '\'                 ; no " follows: all literal
+.lits:  stosb
+        dec     ah
+        jnz     .lits
+        jmp     .next
+.none:  jmp     greet                   ; no argument
 .notbs: cmp     al, '"'
         jne     .notq
         xor     bl, 1

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Differential tests: run the Watcom hello.exe and the assembly
+# Differential tests: run the C hello.exe and the assembly
 # hello.com on the same arguments under DOSBox-X and require identical
 # bytes on standard output, identical bytes on standard output plus
 # standard error, and identical exit status.  A few cases are also

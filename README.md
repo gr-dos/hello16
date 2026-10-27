@@ -1,9 +1,10 @@
 # hello16
 
-Hello world for 16-bit MS-DOS, built with Open Watcom.
+Hello world for 16-bit MS-DOS, built with Open Watcom and
+[libc16](https://github.com/gr-dos/libc16).
 
 The resulting `hello.exe` is a small-model, real-mode 8086 executable
-(about 10 KB) that runs on any DOS from an original PC up.
+(about 1.4 KB) that runs on any DOS from an original PC up.
 
 This repository is also the template for other 16-bit DOS utilities
 in the [gr-dos](https://github.com/gr-dos) organization, which are
@@ -27,9 +28,9 @@ A utility built from this template uses one of three layouts:
 
 | Layout | Sources | Toolchain | Program built, tested and released |
 |---|---|---|---|
-| 1. C only | `NAME.c` | Open Watcom | `NAME.exe` |
+| 1. C only | `NAME.c` | Open Watcom and libc16 | `NAME.exe` |
 | 2. Assembly only | `NAME.asm` | NASM | `NAME.com` |
-| 3. C reference and assembly | `NAME.c`, `asm/NAME.asm` | Open Watcom and NASM | `NAME.exe` and `asm/NAME.com` |
+| 3. C reference and assembly | `NAME.c`, `asm/NAME.asm` | Open Watcom, libc16 and NASM | `NAME.exe` and `asm/NAME.com` |
 
 This repository is layout 3: `hello.c` is the reference and
 `asm/hello.asm` is the assembly version. Remove what a utility does not
@@ -37,13 +38,15 @@ need (see [Starting a new utility from this
 template](#starting-a-new-utility-from-this-template)).
 
 Which to use is up to the implementor. The trade-off is size against
-effort. C is quicker to write and review, but the Watcom C runtime costs
-about 9 KB on disk and 11 KB of conventional memory per program
-(`hello.exe` is 9,532 bytes against 511 for `hello.com`; see
-`asm/README.md`). Assembly avoids that cost, but file I/O, error
-handling and number formatting all have to be written and tested by
-hand. Size is a good reason to choose assembly, for example for a tool
-that has to fit on a crowded boot floppy.
+effort. C is quicker to write and review. With libc16, which links only
+the functions a program calls, its runtime costs under 1 KB on disk and
+about 3 KB of conventional memory for a program like this one
+(`hello.exe` is 1,386 bytes against 547 for `hello.com`; with Open
+Watcom's own runtime it was 9,532; see `asm/README.md`). Assembly is
+smaller still, but file I/O, error handling and number formatting all
+have to be written and tested by hand. Size is a good reason to choose
+assembly, for example for a tool that has to fit on a crowded boot
+floppy.
 
 **1. C only:** `make`, `make test`, CI and the release all use the C
 `.EXE`.
@@ -72,7 +75,8 @@ behavior gets a `diff.sh` case. Both workflows install NASM and run
 ### 1. Build and test on Linux with GNU make and Open Watcom or NASM
 
 Everything is built and tested on a Linux host, driven by GNU make. C
-is cross-compiled with the Linux-hosted Open Watcom toolchain:
+is cross-compiled with the Linux-hosted Open Watcom toolchain and linked
+with libc16 only (no Open Watcom runtime or headers):
 
     make         # builds hello.exe
     make test    # runs the test suite under DOSBox-X
@@ -89,20 +93,35 @@ In layout 3 it lives in `asm/` with its own `Makefile`:
 In layout 2 the top-level `Makefile` is the assembly one, so plain
 `make` and `make test` build and test `NAME.com`.
 
-### 2. Watcom location
+### 2. libc16 and Open Watcom
 
 (Layouts 1 and 3. Layout 2 needs no Watcom, only NASM on `PATH`.)
 
-The `Makefile` uses the Open Watcom installation in `~/opt/watcom` by
-default. Point it somewhere else on the command line:
+C programs use [libc16](https://github.com/gr-dos/libc16), a C runtime
+for small-model DOS programs, instead of Open Watcom's own, and the Open
+Watcom toolchain that libc16 pins. By default `make` runs
+`scripts/fetch-libc16`, which downloads the libc16 release pinned in
+that script (`libc16-VERSION.zip`), checks it against the SHA-256
+written there before unpacking it, and unpacks it into `build/libc16`.
+The release's `tools/fetch-watcom` then fetches the Open Watcom snapshot
+libc16 was built with into `build/tools`, also checked by SHA-256. This
+needs `curl`, `unzip`, `sha256sum` and `xz`. To move to a newer libc16,
+set `version` and `sha256` in `scripts/fetch-libc16` to the new
+release's (its `.sha256` asset), both in the same change (libc16's
+`docs/CONSUMERS.md`, "Using libc16").
 
-    make WATCOM=/path/to/watcom
-    make test WATCOM=/path/to/watcom
+To build against a local libc16 checkout instead (built with its own
+`make`, which stages the release layout in `build/stage`), point
+`LIBC16_ROOT` at it:
 
-The `Makefile` sets `INCLUDE` and puts `$(WATCOM)/binl64` and
-`$(WATCOM)/binl` on `PATH` itself, so there is no environment to source
-first. In CI, `open-watcom/setup-watcom` sets `WATCOM`, which overrides
-the default.
+    make LIBC16_ROOT=../libc16
+    make test LIBC16_ROOT=../libc16
+
+The compiler and linker flags are libc16's consumer flags (its
+`docs/ABI.md`): `wcc -zl -zld -x -ms -0 -s -bt=dos`, with only libc16's
+headers, and `wlink option nodefaultlibs`. A function libc16 does not
+provide is a link error. libc16 has no `printf`; programs write with
+`fputs` and format numbers with small helpers (libc16's `libc16.h`).
 
 ### 3. `main` is protected
 
@@ -182,9 +201,9 @@ in layout 2 only `NAME.com`.
    - **Assembly only:** move `asm/NAME.asm` to the top level, replace
      the top-level `Makefile` with a NASM one (the `NAME.com` rule from
      `asm/Makefile`, with `test` running `tests/run.sh` on `NAME.com`),
-     delete `NAME.c` and the rest of `asm/`, and in both workflows
-     drop `open-watcom/setup-watcom` and `make -C asm test` and release
-     only `NAME.com`.
+     delete `NAME.c`, `scripts/fetch-libc16` and the rest of `asm/`, and
+     in both workflows drop the libc16 cache and `make -C asm test` and
+     release only `NAME.com`.
    - **C reference and assembly:** keep both, as is.
 3. Reset `VERSION` to `0.01`.
 4. Create the GitHub repository, push `main`, and apply the branch
@@ -194,7 +213,9 @@ in layout 2 only `NAME.com`.
 ## Files
 
 - `hello.c`: the program
-- `Makefile`: Open Watcom build (`make`, `make test`, `make clean`)
+- `Makefile`: Open Watcom and libc16 build (`make`, `make test`,
+  `make clean`)
+- `scripts/fetch-libc16`: fetch and build the pinned libc16
 - `VERSION`: the version, compiled in and printed by `--version`
 - `tests/run.sh`: the test suite, run under DOSBox-X by `make test`
 - `.github/workflows/ci.yml`: build and test on PRs and pushes to `main`

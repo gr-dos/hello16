@@ -1,8 +1,8 @@
 /*
  * hello - print a greeting
  *
- * Hello world for 16-bit MS-DOS (Open Watcom C), and a template for
- * other DOS utilities.
+ * Hello world for 16-bit MS-DOS (Open Watcom C with libc16), and a
+ * template for other DOS utilities.
  */
 
 #include <stdio.h>
@@ -14,14 +14,26 @@
 
 static const char *progname = "hello";
 
+/* Writes "hello: WHAT 'ARG'" and the --help hint to standard error. */
+static void bad_arg(const char *what, const char *arg)
+{
+    fputs(progname, stderr);
+    fputs(": ", stderr);
+    fputs(what, stderr);
+    fputs(" '", stderr);
+    fputs(arg, stderr);
+    fputs("'\n", stderr);
+    fputs("Try 'hello --help' for more information.\n", stderr);
+}
+
 static void usage(FILE *fp)
 {
-    fprintf(fp,
+    fputs(
         "Usage: hello [OPTION]...\n"
         "Print a greeting.\n"
         "\n"
         "  -h, --help     display this help and exit\n"
-        "      --version  output version information and exit\n");
+        "      --version  output version information and exit\n", fp);
 }
 
 int main(int argc, char **argv)
@@ -36,19 +48,17 @@ int main(int argc, char **argv)
             usage(stdout);
             return 0;
         } else if (strcmp(a, "--version") == 0) {
-            printf("hello (dos-hello16) %s\n", VERSION);
+            fputs("hello (dos-hello16) " VERSION "\n", stdout);
             return 0;
         } else if (a[0] == '-') {
-            fprintf(stderr, "%s: unrecognized option '%s'\n", progname, a);
-            fprintf(stderr, "Try 'hello --help' for more information.\n");
+            bad_arg("unrecognized option", a);
             return 1;
         } else {
-            fprintf(stderr, "%s: extra operand '%s'\n", progname, a);
-            fprintf(stderr, "Try 'hello --help' for more information.\n");
+            bad_arg("extra operand", a);
             return 1;
         }
     }
 
-    printf("Hello, world!\n");
+    fputs("Hello, world!\n", stdout);
     return 0;
 }
